@@ -38,6 +38,18 @@ smiling = False
 baseline = None
 on_offset = 0.10
 off_offset = 0.18
+super_on_offset = 0.03
+super_off_offset = 0.08
+DEBUG = 1
+debug_last_serial = ""
+debug_serial_history = []
+
+def _debug_add_serial(msg):
+    global debug_last_serial, debug_serial_history
+    debug_last_serial = msg
+    debug_serial_history.append(msg)
+    if len(debug_serial_history) > 6:
+        debug_serial_history = debug_serial_history[-6:]
 
 # Session countdown + display behavior
 session_seconds = 300
@@ -60,6 +72,8 @@ warmup_active = False
 warmup_start = 0.0
 warmup_duration = 4
 warmup_done_hold = 1.0
+tease_mode = False
+challenge_mode = False
 
 # Serial output when not smiling
 SERIAL_PORT = "COM3"
@@ -83,6 +97,10 @@ timeout_s = 15
 last_send_time = 0.0
 active_until = 0.0
 last_sent_channels = set()
+tease_next_time = time.time() + random.uniform(6.0, 12.0)
+tease_active_until = 0.0
+tease_last_channels = set()
+tease_duration_s = 1.0
 ser = None
 ser_status = "Disconnected"
 ser_error = ""
@@ -189,6 +207,30 @@ def _draw_options_ui():
     for s in sliders[0:4]:
         y = draw_slider(s, left_x + 10, y, col_w - 20)
 
+    # Modes section (left, below session)
+    draw_section("MODES", left_x, 250, col_w)
+    y = 260
+    cv2.putText(img, "Tease mode", (left_x + 10, y),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+    box_tease = (left_x + 120, y - 12, 22, 22)
+    cv2.rectangle(img, (box_tease[0], box_tease[1]), (box_tease[0] + box_tease[2], box_tease[1] + box_tease[3]), (200, 200, 200), 2)
+    if tease_mode:
+        cv2.line(img, (box_tease[0] + 4, box_tease[1] + 12), (box_tease[0] + 10, box_tease[1] + 18), (80, 200, 80), 2)
+        cv2.line(img, (box_tease[0] + 10, box_tease[1] + 18), (box_tease[0] + 18, box_tease[1] + 4), (80, 200, 80), 2)
+
+    y += 34
+    cv2.putText(img, "Challenge (super smile)", (left_x + 10, y),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+    box_challenge = (left_x + 220, y - 12, 22, 22)
+    cv2.rectangle(img, (box_challenge[0], box_challenge[1]), (box_challenge[0] + box_challenge[2], box_challenge[1] + box_challenge[3]), (200, 200, 200), 2)
+    if challenge_mode:
+        cv2.line(img, (box_challenge[0] + 4, box_challenge[1] + 12), (box_challenge[0] + 10, box_challenge[1] + 18), (80, 200, 80), 2)
+        cv2.line(img, (box_challenge[0] + 10, box_challenge[1] + 18), (box_challenge[0] + 18, box_challenge[1] + 4), (80, 200, 80), 2)
+
+    global toggle_tease_rect, toggle_challenge_rect
+    toggle_tease_rect = box_tease
+    toggle_challenge_rect = box_challenge
+
     # Channel section (right)
     draw_section("CHANNELS", right_x, 60, col_w)
     y = 70
@@ -278,7 +320,7 @@ def _draw_options_ui():
     return img
 
 def _on_options_mouse(event, x, y, flags, param):
-    global options_locked, dragging, channel_a_enabled, channel_b_enabled, selected_port, dropdown_open, ser_status
+    global options_locked, dragging, channel_a_enabled, channel_b_enabled, selected_port, dropdown_open, ser_status, tease_mode, challenge_mode
     if options_locked:
         return
     if event == cv2.EVENT_LBUTTONDOWN:
@@ -309,6 +351,14 @@ def _on_options_mouse(event, x, y, flags, param):
         if bx <= x <= bx + bw and by <= y <= by + bh:
             options_locked = True
             cv2.destroyWindow("Options")
+            return
+        tx, ty, tw, th = toggle_tease_rect
+        if tx <= x <= tx + tw and ty <= y <= ty + th:
+            tease_mode = not tease_mode
+            return
+        cx2, cy2, cw2, ch2 = toggle_challenge_rect
+        if cx2 <= x <= cx2 + cw2 and cy2 <= y <= cy2 + ch2:
+            challenge_mode = not challenge_mode
             return
         ax, ay, aw, ah = toggle_a_rect
         bx2, by2, bw2, bh2 = toggle_b_rect
@@ -441,9 +491,11 @@ while True:
                 ratio_ema = (0.2 * ratio) + (0.8 * ratio_ema)
 
             if baseline is not None:
-                if not smiling and ratio_ema > baseline - on_offset:
+                on_thr = baseline - (super_on_offset if challenge_mode else on_offset)
+                off_thr = baseline - (super_off_offset if challenge_mode else off_offset)
+                if not smiling and ratio_ema > on_thr:
                     smiling = True
-                elif smiling and ratio_ema < baseline - off_offset:
+                elif smiling and ratio_ema < off_thr:
                     smiling = False
 
             if session_started and not smiling and ser:
@@ -467,12 +519,16 @@ while True:
                             high_a = min(intensity_max_a, base_a + intensity_window_a)
                             intensity_a = random.randint(base_a, high_a)
                             ser.write(f"A{intensity_a}\n".encode())
+                            if DEBUG:
+                                _debug_add_serial(f"A{intensity_a}")
                             fail_count_a += 1
                         if "B" in channels_to_send:
                             base_b = min(intensity_max_b, intensity_min_b + fail_count_b * intensity_step_b)
                             high_b = min(intensity_max_b, base_b + intensity_window_b)
                             intensity_b = random.randint(base_b, high_b)
                             ser.write(f"B{intensity_b}\n".encode())
+                            if DEBUG:
+                                _debug_add_serial(f"B{intensity_b}")
                             fail_count_b += 1
 
                         last_sent_channels = set(channels_to_send)
@@ -481,20 +537,87 @@ while True:
                     except Exception:
                         pass
 
+            if session_started and smiling and tease_mode and ser:
+                now = time.time()
+                if active_until <= now and tease_active_until <= now and now >= tease_next_time:
+                    try:
+                        tease_channels = []
+                        if channel_a_enabled:
+                            tease_channels.append("A")
+                        if channel_b_enabled:
+                            tease_channels.append("B")
+                        if tease_channels:
+                            if "A" in tease_channels:
+                                ser.write(f"A{intensity_min_a}\n".encode())
+                                if DEBUG:
+                                    _debug_add_serial(f"A{intensity_min_a}")
+                            if "B" in tease_channels:
+                                ser.write(f"B{intensity_min_b}\n".encode())
+                                if DEBUG:
+                                    _debug_add_serial(f"B{intensity_min_b}")
+                            tease_last_channels = set(tease_channels)
+                            tease_active_until = now + tease_duration_s
+                    except Exception:
+                        pass
+                    tease_next_time = now + random.uniform(6.0, 12.0)
+
             if session_started and ser and active_until > 0 and time.time() >= active_until:
                 try:
                     if "A" in last_sent_channels:
                         ser.write(b"A0\n")
+                        if DEBUG:
+                            _debug_add_serial("A0")
                     if "B" in last_sent_channels:
                         ser.write(b"B0\n")
+                        if DEBUG:
+                            _debug_add_serial("B0")
                 except Exception:
                     pass
                 active_until = 0.0
                 last_sent_channels = set()
 
+            if session_started and ser and tease_active_until > 0 and time.time() >= tease_active_until:
+                try:
+                    if active_until <= time.time():
+                        if "A" in tease_last_channels and "A" not in last_sent_channels:
+                            ser.write(b"A0\n")
+                            if DEBUG:
+                                _debug_add_serial("A0")
+                        if "B" in tease_last_channels and "B" not in last_sent_channels:
+                            ser.write(b"B0\n")
+                            if DEBUG:
+                                _debug_add_serial("B0")
+                except Exception:
+                    pass
+                tease_active_until = 0.0
+                tease_last_channels = set()
+
             color = (0, 255, 0) if smiling else (0, 0, 255)
             cv2.putText(img, f"Smile: {'YES' if smiling else 'NO'}", (10, 110),
                         cv2.FONT_HERSHEY_PLAIN, 2, color, 2)
+            if DEBUG:
+                normal_req = (baseline - on_offset) if baseline is not None else None
+                super_req = (baseline - super_on_offset) if baseline is not None else None
+                req_normal_text = f"{normal_req:.3f}" if normal_req is not None else "N/A"
+                req_super_text = f"{super_req:.3f}" if super_req is not None else "N/A"
+                ratio_text = f"{ratio_ema:.3f}" if ratio_ema is not None else "N/A"
+                dbg_scale = 2.4
+                dbg_color = color
+                cv2.putText(img, f"Ratio: {ratio_text}", (10, 260),
+                            cv2.FONT_HERSHEY_PLAIN, dbg_scale, dbg_color, 2)
+                cv2.putText(img, f"Req normal: {req_normal_text}", (10, 310),
+                            cv2.FONT_HERSHEY_PLAIN, dbg_scale, dbg_color, 2)
+                cv2.putText(img, f"Req super: {req_super_text}", (10, 360),
+                            cv2.FONT_HERSHEY_PLAIN, dbg_scale, dbg_color, 2)
+
+                right_x = max(10, w - 360)
+                cv2.putText(img, "Serial:", (right_x, 260),
+                            cv2.FONT_HERSHEY_PLAIN, dbg_scale, dbg_color, 2)
+                y_serial = 310
+                for msg in debug_serial_history:
+                    cv2.putText(img, msg, (right_x, y_serial),
+                                cv2.FONT_HERSHEY_PLAIN, dbg_scale, dbg_color, 2)
+                    y_serial += 50
             if not session_started:
                 cv2.putText(img, f"Ratio: {ratio_ema:.2f}", (10, 150),
                             cv2.FONT_HERSHEY_PLAIN, 2, color, 2)
@@ -590,12 +713,13 @@ while True:
                 cv2.putText(img, current_message, (x, y), font, scale, (0, 255, 255), thickness)
 
     cTime = time.time()
-    fps = 1/(cTime - pTime)
+    dt_fps = cTime - pTime
+    fps = 1 / dt_fps if dt_fps > 0 else 0.0
     pTime = cTime
     # FPS hidden
     if img is None:
         img = np.zeros((720, 1280, 3), dtype=np.uint8)
-        cv2.putText(img, "Camera starting...", (40, 80),
+        cv2.putText(img, "Camera starting - it may take minute...", (40, 80),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.2, (200, 200, 200), 2)
     cv2.imshow("Image", img)
     key = cv2.waitKey(1) & 0xFF
