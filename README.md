@@ -21,3 +21,7 @@ This script turns a webcam into a grin-detector and uses it to enforce a spicy p
 **Controls**
 - Press `S` to set the smile baseline (starts the warm-up).
 - Press `Q` to quit.
+
+**Inspired by**
+- mistress_and_pup
+- Deviant-Designs
