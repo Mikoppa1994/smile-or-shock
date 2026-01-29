@@ -2,10 +2,10 @@ import cv2
 import mediapipe as mp
 import time
 import serial
+import serial.tools.list_ports
 import random
 import ctypes
 import ctypes.wintypes
-import numpy as np
 import numpy as np
 
 cap = cv2.VideoCapture(0)
@@ -73,10 +73,42 @@ last_send_time = 0.0
 active_until = 0.0
 last_sent_channels = set()
 ser = None
-try:
-    ser = serial.Serial(SERIAL_PORT, SERIAL_BAUD, timeout=0.1)
-except Exception as e:
-    print(f"Serial open failed: {e}")
+ser_status = "Disconnected"
+ser_error = ""
+available_ports = []
+selected_port = SERIAL_PORT
+
+def _refresh_ports():
+    global available_ports, selected_port
+    ports = [p.device for p in serial.tools.list_ports.comports()]
+    available_ports = ports
+    if ports:
+        if selected_port not in ports:
+            selected_port = ports[0]
+    else:
+        selected_port = None
+
+def _connect_serial(port):
+    global ser, ser_status, ser_error
+    if ser:
+        try:
+            ser.close()
+        except Exception:
+            pass
+        ser = None
+    if not port:
+        ser_status = "No port selected"
+        ser_error = ""
+        return
+    try:
+        ser = serial.Serial(port, SERIAL_BAUD, timeout=0.1)
+        ser_status = f"Connected ({port})"
+        ser_error = ""
+    except Exception as e:
+        ser = None
+        ser_status = f"Failed ({port})"
+        ser_error = str(e)
+        print(f"Serial open failed: {e}")
 
 # Options window (custom UI + controls in one window)
 cv2.namedWindow("Options", cv2.WINDOW_NORMAL)
@@ -104,6 +136,7 @@ def _draw_options_ui():
     img = (24 * np.ones((520, 760, 3), dtype=np.uint8))
     cv2.putText(img, "Session Options", (20, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (230, 230, 230), 2)
+    _refresh_ports()
 
     def draw_section(title, x, y, w):
         cv2.rectangle(img, (x, y - 18), (x + w, y + 160), (45, 45, 45), 1)
@@ -178,17 +211,44 @@ def _draw_options_ui():
     cv2.rectangle(img, (x, y), (x + w, y + h), (80, 200, 80), -1)
     cv2.putText(img, "APPLY", (x + 50, y + 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
+
+    # Serial port selector
+    port_label = "Port: " + (selected_port if selected_port else "None")
+    cv2.putText(img, port_label, (20, 465),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (210, 210, 210), 1)
+    port_btn = (120, 442, 140, 30)
+    cv2.rectangle(img, (port_btn[0], port_btn[1]),
+                  (port_btn[0] + port_btn[2], port_btn[1] + port_btn[3]),
+                  (70, 70, 70), -1)
+    cv2.putText(img, "Change", (port_btn[0] + 28, port_btn[1] + 21),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (230, 230, 230), 1)
+    global port_btn_rect
+    port_btn_rect = port_btn
+
+    # Serial status
+    cv2.putText(img, f"Serial: {ser_status}", (20, 500),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
     return img
 
 def _on_options_mouse(event, x, y, flags, param):
-    global options_locked, dragging, channel_a_enabled, channel_b_enabled
+    global options_locked, dragging, channel_a_enabled, channel_b_enabled, selected_port
     if options_locked:
         return
     if event == cv2.EVENT_LBUTTONDOWN:
         bx, by, bw, bh = options_btn["x"], options_btn["y"], options_btn["w"], options_btn["h"]
         if bx <= x <= bx + bw and by <= y <= by + bh:
+            _connect_serial(selected_port)
             options_locked = True
             cv2.destroyWindow("Options")
+            return
+        px, py, pw, ph = port_btn_rect
+        if px <= x <= px + pw and py <= y <= py + ph:
+            if available_ports:
+                if selected_port in available_ports:
+                    idx = available_ports.index(selected_port)
+                    selected_port = available_ports[(idx + 1) % len(available_ports)]
+                else:
+                    selected_port = available_ports[0]
             return
         ax, ay, aw, ah = toggle_a_rect
         bx2, by2, bw2, bh2 = toggle_b_rect
@@ -368,6 +428,8 @@ while True:
             color = (0, 255, 0) if smiling else (0, 0, 255)
             cv2.putText(img, f"Smile: {'YES' if smiling else 'NO'}", (10, 110),
                         cv2.FONT_HERSHEY_PLAIN, 2, color, 2)
+            cv2.putText(img, f"Serial: {ser_status}", (10, 70),
+                        cv2.FONT_HERSHEY_PLAIN, 1.3, (200, 200, 200), 2)
             if not session_started:
                 cv2.putText(img, f"Ratio: {ratio_ema:.2f}", (10, 150),
                             cv2.FONT_HERSHEY_PLAIN, 2, color, 2)
