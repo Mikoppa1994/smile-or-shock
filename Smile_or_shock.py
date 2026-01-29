@@ -52,7 +52,7 @@ warmup_done_hold = 1.0
 
 # Serial output when not smiling
 SERIAL_PORT = "COM3"
-SERIAL_BAUD = 115200
+SERIAL_BAUD = 9600
 intensity_min_a = 20
 intensity_max_a = 90
 intensity_step_a = 2
@@ -77,6 +77,10 @@ ser_status = "Disconnected"
 ser_error = ""
 available_ports = []
 selected_port = SERIAL_PORT
+dropdown_open = False
+port_dropdown_rect = (0, 0, 0, 0)
+port_item_rects = []
+connect_btn_rect = (0, 0, 0, 0)
 
 def _refresh_ports():
     global available_ports, selected_port
@@ -109,6 +113,17 @@ def _connect_serial(port):
         ser_status = f"Failed ({port})"
         ser_error = str(e)
         print(f"Serial open failed: {e}")
+
+def _disconnect_serial():
+    global ser, ser_status, ser_error
+    if ser:
+        try:
+            ser.close()
+        except Exception:
+            pass
+    ser = None
+    ser_status = "Disconnected"
+    ser_error = ""
 
 # Options window (custom UI + controls in one window)
 cv2.namedWindow("Options", cv2.WINDOW_NORMAL)
@@ -212,43 +227,77 @@ def _draw_options_ui():
     cv2.putText(img, "APPLY", (x + 50, y + 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
 
-    # Serial port selector
-    port_label = "Port: " + (selected_port if selected_port else "None")
-    cv2.putText(img, port_label, (20, 465),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (210, 210, 210), 1)
-    port_btn = (120, 442, 140, 30)
-    cv2.rectangle(img, (port_btn[0], port_btn[1]),
-                  (port_btn[0] + port_btn[2], port_btn[1] + port_btn[3]),
-                  (70, 70, 70), -1)
-    cv2.putText(img, "Change", (port_btn[0] + 28, port_btn[1] + 21),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (230, 230, 230), 1)
-    global port_btn_rect
-    port_btn_rect = port_btn
-
-    # Serial status
-    cv2.putText(img, f"Serial: {ser_status}", (20, 500),
+    # Serial status (draw first so dropdown layers above)
+    cv2.putText(img, f"Status: {ser_status}", (20, 420),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+
+    # Serial port dropdown
+    cv2.putText(img, "COM Port", (20, 330),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (210, 210, 210), 1)
+    dd_x, dd_y, dd_w, dd_h = 20, 340, 200, 28
+    cv2.rectangle(img, (dd_x, dd_y), (dd_x + dd_w, dd_y + dd_h), (70, 70, 70), -1)
+    dd_text = selected_port if selected_port else "None"
+    cv2.putText(img, dd_text, (dd_x + 8, dd_y + 20),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (230, 230, 230), 1)
+    cv2.putText(img, "v" if not dropdown_open else "^", (dd_x + dd_w - 18, dd_y + 20),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (230, 230, 230), 1)
+    global port_dropdown_rect, port_item_rects
+    port_dropdown_rect = (dd_x, dd_y, dd_w, dd_h)
+    port_item_rects = []
+    if dropdown_open:
+        item_h = 24
+        for i, port in enumerate(available_ports):
+            iy = dd_y + dd_h + (i * item_h)
+            cv2.rectangle(img, (dd_x, iy), (dd_x + dd_w, iy + item_h), (60, 60, 60), -1)
+            cv2.putText(img, port, (dd_x + 8, iy + 17),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (230, 230, 230), 1)
+            port_item_rects.append((dd_x, iy, dd_w, item_h, port))
+
+    # Connect/Disconnect button
+    is_connected = ser is not None and ser.is_open
+    cx, cy, cw, ch = 230, 340, 120, 28
+    btn_color = (80, 200, 80) if is_connected else (80, 140, 220)
+    btn_label = "DISCONNECT" if is_connected else "CONNECT"
+    cv2.rectangle(img, (cx, cy), (cx + cw, cy + ch), btn_color, -1)
+    cv2.putText(img, btn_label, (cx + 5, cy + 20),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+    global connect_btn_rect
+    connect_btn_rect = (cx, cy, cw, ch)
+
     return img
 
 def _on_options_mouse(event, x, y, flags, param):
-    global options_locked, dragging, channel_a_enabled, channel_b_enabled, selected_port
+    global options_locked, dragging, channel_a_enabled, channel_b_enabled, selected_port, dropdown_open, ser_status
     if options_locked:
         return
     if event == cv2.EVENT_LBUTTONDOWN:
+        # Dropdown selection
+        ddx, ddy, ddw, ddh = port_dropdown_rect
+        if ddx <= x <= ddx + ddw and ddy <= y <= ddy + ddh:
+            dropdown_open = not dropdown_open
+            return
+        if dropdown_open:
+            for rx, ry, rw, rh, port in port_item_rects:
+                if rx <= x <= rx + rw and ry <= y <= ry + rh:
+                    selected_port = port
+                    ser_status = f"Selected ({port})"
+                    dropdown_open = False
+                    return
+            dropdown_open = False
+
+        # Connect button
+        cx, cy, cw, ch = connect_btn_rect
+        if cx <= x <= cx + cw and cy <= y <= cy + ch:
+            if ser is not None and ser.is_open:
+                _disconnect_serial()
+            else:
+                _connect_serial(selected_port)
+            return
+
         bx, by, bw, bh = options_btn["x"], options_btn["y"], options_btn["w"], options_btn["h"]
         if bx <= x <= bx + bw and by <= y <= by + bh:
-            _connect_serial(selected_port)
             options_locked = True
             cv2.destroyWindow("Options")
-            return
-        px, py, pw, ph = port_btn_rect
-        if px <= x <= px + pw and py <= y <= py + ph:
-            if available_ports:
-                if selected_port in available_ports:
-                    idx = available_ports.index(selected_port)
-                    selected_port = available_ports[(idx + 1) % len(available_ports)]
-                else:
-                    selected_port = available_ports[0]
             return
         ax, ay, aw, ah = toggle_a_rect
         bx2, by2, bw2, bh2 = toggle_b_rect
@@ -428,8 +477,6 @@ while True:
             color = (0, 255, 0) if smiling else (0, 0, 255)
             cv2.putText(img, f"Smile: {'YES' if smiling else 'NO'}", (10, 110),
                         cv2.FONT_HERSHEY_PLAIN, 2, color, 2)
-            cv2.putText(img, f"Serial: {ser_status}", (10, 70),
-                        cv2.FONT_HERSHEY_PLAIN, 1.3, (200, 200, 200), 2)
             if not session_started:
                 cv2.putText(img, f"Ratio: {ratio_ema:.2f}", (10, 150),
                             cv2.FONT_HERSHEY_PLAIN, 2, color, 2)
