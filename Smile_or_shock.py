@@ -86,6 +86,11 @@ def run():
         "tease_active_until": 0.0,
         "tease_last_channels": set(),
         "tease_duration_s": config.TEASE_DURATION_S,
+        "super_warning_active": False,
+        "super_warning_end": 0.0,
+        "super_challenge_active": False,
+        "super_challenge_end": 0.0,
+        "next_super_warning_time": time.time() + random.uniform(config.SUPER_COOLDOWN_MIN_S, config.SUPER_COOLDOWN_MAX_S),
     }
 
     # Options window (custom UI + controls in one window)
@@ -186,16 +191,65 @@ def run():
                     state["ratio_ema"] = (0.2 * ratio) + (0.8 * state["ratio_ema"])
 
                 if state["baseline"] is not None:
-                    on_thr = state["baseline"] - (config.SUPER_ON_OFFSET if state["challenge_mode"] else config.ON_OFFSET)
-                    off_thr = state["baseline"] - (config.SUPER_OFF_OFFSET if state["challenge_mode"] else config.OFF_OFFSET)
+                    super_off = max(0.0, config.SUPER_ON_OFFSET - 0.10)
+                    on_thr = state["baseline"] + (config.SUPER_ON_OFFSET if state["challenge_mode"] else 0.0)
+                    off_thr = state["baseline"] + (super_off if state["challenge_mode"] else -0.10)
                     if not state["smiling"] and state["ratio_ema"] > on_thr:
                         state["smiling"] = True
                     elif state["smiling"] and state["ratio_ema"] < off_thr:
                         state["smiling"] = False
 
+                if state["session_started"] and state["challenge_mode"]:
+                    if state["super_warning_active"] and now >= state["super_warning_end"]:
+                        state["super_warning_active"] = False
+                        state["super_challenge_active"] = True
+                        duration = random.uniform(config.SUPER_CHALLENGE_MIN_S, config.SUPER_CHALLENGE_MAX_S)
+                        state["super_challenge_end"] = now + duration
+                    elif (not state["super_warning_active"] and not state["super_challenge_active"]
+                          and now >= state["next_super_warning_time"]):
+                        state["super_warning_active"] = True
+                        state["super_warning_end"] = now + config.SUPER_WARNING_DURATION_S
+
+                    if state["super_challenge_active"] and now >= state["super_challenge_end"]:
+                        state["super_challenge_active"] = False
+                        state["next_super_warning_time"] = now + random.uniform(config.SUPER_COOLDOWN_MIN_S, config.SUPER_COOLDOWN_MAX_S)
+
+                    if state["super_challenge_active"] and not state["smiling"] and serial_ctrl.ser:
+                        try:
+                            channels_to_send = []
+                            if state["channel_a_enabled"]:
+                                channels_to_send.append("A")
+                            if state["channel_b_enabled"]:
+                                channels_to_send.append("B")
+
+                            if "A" in channels_to_send:
+                                base_a = min(state["intensity_max_a"], state["intensity_min_a"] + state["fail_count_a"] * state["intensity_step_a"])
+                                high_a = min(state["intensity_max_a"], base_a + state["intensity_window_a"])
+                                super_a = min(state["intensity_max_a"], high_a + config.SUPER_PUNISH_EXTRA)
+                                serial_ctrl.write(f"A{super_a}\n")
+                                if config.DEBUG:
+                                    debug.add_serial(f"A{super_a}")
+                            if "B" in channels_to_send:
+                                base_b = min(state["intensity_max_b"], state["intensity_min_b"] + state["fail_count_b"] * state["intensity_step_b"])
+                                high_b = min(state["intensity_max_b"], base_b + state["intensity_window_b"])
+                                super_b = min(state["intensity_max_b"], high_b + config.SUPER_PUNISH_EXTRA)
+                                serial_ctrl.write(f"B{super_b}\n")
+                                if config.DEBUG:
+                                    debug.add_serial(f"B{super_b}")
+
+                            state["last_sent_channels"] = set(channels_to_send)
+                            state["last_send_time"] = now
+                            state["active_until"] = now + state["duration_s"]
+                        except Exception:
+                            pass
+                        state["super_challenge_active"] = False
+                        state["next_super_warning_time"] = now + random.uniform(config.SUPER_COOLDOWN_MIN_S, config.SUPER_COOLDOWN_MAX_S)
+
                 if state["session_started"] and not state["smiling"] and serial_ctrl.ser:
                     now = time.time()
-                    if now - state["last_send_time"] >= state["timeout_s"] and state["active_until"] <= now:
+                    if state["super_challenge_active"]:
+                        pass
+                    elif now - state["last_send_time"] >= state["timeout_s"] and state["active_until"] <= now:
                         try:
                             channels_to_send = []
                             if state["channel_a_enabled"] and state["channel_b_enabled"]:
@@ -290,9 +344,28 @@ def run():
                 color = (0, 255, 0) if state["smiling"] else (0, 0, 255)
                 cv2.putText(img, f"Smile: {'YES' if state['smiling'] else 'NO'}", (10, 110),
                             cv2.FONT_HERSHEY_PLAIN, 2, color, 2)
+                if state["super_warning_active"]:
+                    text = config.SUPER_WARNING_TEXT
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    scale = 5.5
+                    thickness = 10
+                    (tw, th), _ = cv2.getTextSize(text, font, scale, thickness)
+                    x = (w - tw) // 2
+                    y = (h + th) // 2
+                    cv2.putText(img, text, (x, y), font, scale, (0, 0, 255), thickness)
+                elif state["super_challenge_active"]:
+                    if int(now * 2) % 2 == 0:
+                        text = "KEEP HOLDING"
+                        font = cv2.FONT_HERSHEY_SIMPLEX
+                        scale = 3.5
+                        thickness = 8
+                        (tw, th), _ = cv2.getTextSize(text, font, scale, thickness)
+                        x = (w - tw) // 2
+                        y = (h + th) // 2
+                        cv2.putText(img, text, (x, y), font, scale, (0, 0, 255), thickness)
                 if config.DEBUG:
-                    normal_req = (state["baseline"] - config.ON_OFFSET) if state["baseline"] is not None else None
-                    super_req = (state["baseline"] - config.SUPER_ON_OFFSET) if state["baseline"] is not None else None
+                    normal_req = state["baseline"] if state["baseline"] is not None else None
+                    super_req = (state["baseline"] + config.SUPER_ON_OFFSET) if state["baseline"] is not None else None
                     req_normal_text = f"{normal_req:.3f}" if normal_req is not None else "N/A"
                     req_super_text = f"{super_req:.3f}" if super_req is not None else "N/A"
                     ratio_text = f"{state['ratio_ema']:.3f}" if state["ratio_ema"] is not None else "N/A"
