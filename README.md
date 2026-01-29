@@ -1,34 +1,47 @@
-**Smile or Suffer — BDSM Predicament Trainer**
+# Smile or Suffer — BDSM Predicament Trainer
 
-Keep a smile... or get punished.
+Keep a smile… or get punished.
 
-This script turns a webcam into a grin-detector and uses it to enforce a spicy predicament: smile = safe, stop smiling = stimulation. You set your session rules, connect your device, and the app handles the rest with timed bursts and randomized intensity inside your limits.
+Smile or Suffer is a webcam-based predicament game. It tracks your face and expects you to keep smiling. 
+If you stop, it triggers shocks over serial. You can set session length, cooldowns, and intensity ranges and let it run.
 
-**Highlights**
-- Smile-based predicament: fail the smile, take the sting
-- On-screen options for session length, cooldowns, and intensity ranges
-- Channel A/B support with randomized bursts
-- Warm-up countdown and motivational prompts
-- Live connection status and COM port selector
+## Highlights
+- Smile predicament: stop smiling → shocks
+- Session length, cooldowns, intensity ranges
+- Channel A/B with randomized bursts
+- Tease mode + Challenge (super-smile) mode
 - Tested with **Estim System 2B**
 
-**How it plays**
-1. Configure your session in the Options window.
-2. Select your COM port and connect.
-3. Set your smile baseline.
-4. Keep smiling to make the timer drain -- stop, and it fights back.
+## Setup
+1. Install Python 3.10+
+2. Install deps:
+   ```bash
+   python setup.py
+   ```
+3. Run:
+   ```bash
+   python Smile_or_shock.py
+   ```
 
-**Controls**
-- Press `S` to set the smile baseline (starts the warm-up).
-- Press `Q` to quit.
+## How it works
+1. Open **Options** and set your session rules.
+2. Pick a COM port and connect.
+3. Press `S` to set your smile baseline.
+4. Keep smiling to drain the timer. Stop smiling and it ramps up.
 
-**Setup**
-1. Install Python 3.10+.
-2. Run `python setup.py` to install dependencies.
-3. Start the app with `python Smile_or_shock.py`.
+## Modes
+- **Tease mode**: low intensity pulses while you *are* smiling.
+- **Challenge mode**: random super-smile holds. Failure = bigger punishment.
 
-**Inspired by**
+## Controls
+- `S` = set smile baseline (starts warm-up)
+- `Q` = quit
+
+## Debug
+Set `DEBUG = 1` in `config.py` to show the live ratio, thresholds, and last serial messages.
+
+## Inspired by
 - mistress_and_pup
 - Deviant-Designs
 
-https://buymeacoffee.com/bdsmbytes
+If you want to Support me: https://buymeacoffee.com/bdsmbytes
