@@ -22,6 +22,11 @@ This script turns a webcam into a grin-detector and uses it to enforce a spicy p
 - Press `S` to set the smile baseline (starts the warm-up).
 - Press `Q` to quit.
 
+**Setup**
+1. Install Python 3.10+.
+2. Run `python setup.py` to install dependencies.
+3. Start the app with `python Smile_or_shock.py`.
+
 **Inspired by**
 - mistress_and_pup
 - Deviant-Designs
