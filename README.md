@@ -17,3 +17,7 @@ This script turns a webcam into a grin-detector and uses it to enforce a spicy p
 2. Select your COM port and connect.
 3. Set your smile baseline.
 4. Keep smiling to make the timer drain -- stop, and it fights back.
+
+**Controls**
+- Press `S` to set the smile baseline (starts the warm-up).
+- Press `Q` to quit.

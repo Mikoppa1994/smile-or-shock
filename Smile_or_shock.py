@@ -7,10 +7,21 @@ import random
 import ctypes
 import ctypes.wintypes
 import numpy as np
+import threading
 
-cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+cap = None
+cap_ready = False
+cap_lock = threading.Lock()
+def _init_camera_async():
+    global cap, cap_ready
+    cam = cv2.VideoCapture(0)
+    cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+    with cap_lock:
+        cap = cam
+        cap_ready = cam.isOpened()
+
+threading.Thread(target=_init_camera_async, daemon=True).start()
 mpFaceMesh = mp.solutions.face_mesh
 faceMesh = mpFaceMesh.FaceMesh()
 mpDraw = mp.solutions.drawing_utils
@@ -342,13 +353,18 @@ def _get_virtual_screen():
     return x, y, w, h
 
 while True:
-    success, img = cap.read()
+    success = False
+    img = None
+    if cap_ready:
+        with cap_lock:
+            if cap and cap.isOpened():
+                success, img = cap.read()
     now = time.time()
     dt = now - last_tick
     last_tick = now
 
     # Center the options window over the camera window before session starts
-    if not session_started and success and not options_locked:
+    if not session_started and not options_locked:
         opt_w, opt_h = 760, 520
         cv2.resizeWindow("Options", opt_w, opt_h)
         rect = None
@@ -393,7 +409,7 @@ while True:
             intensity_max_b = intensity_min_b
             sliders[9]["value"] = intensity_max_b
         remaining_seconds = float(session_seconds)
-    if success:
+    if success and img is not None:
         h0, w0 = img.shape[:2]
         scale = 1.8
         nw, nh = int(w0 / scale), int(h0 / scale)
@@ -401,9 +417,11 @@ while True:
         y1 = (h0 - nh) // 2
         img = img[y1:y1+nh, x1:x1+nw]
         img = cv2.resize(img, (w0, h0), interpolation=cv2.INTER_LINEAR)
-    imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    results = faceMesh.process(imgRGB)
-    if results.multi_face_landmarks:
+    results = None
+    if success and img is not None:
+        imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        results = faceMesh.process(imgRGB)
+    if results and results.multi_face_landmarks:
         for faceLms in results.multi_face_landmarks:
             mpDraw.draw_landmarks(img, faceLms, mpFaceMesh.FACEMESH_CONTOURS, drawSpec, drawSpec)
             h, w, c = img.shape
@@ -575,6 +593,10 @@ while True:
     fps = 1/(cTime - pTime)
     pTime = cTime
     # FPS hidden
+    if img is None:
+        img = np.zeros((720, 1280, 3), dtype=np.uint8)
+        cv2.putText(img, "Camera starting...", (40, 80),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.2, (200, 200, 200), 2)
     cv2.imshow("Image", img)
     key = cv2.waitKey(1) & 0xFF
     if key in (ord("s"), ord("S")) and ratio_ema is not None:
