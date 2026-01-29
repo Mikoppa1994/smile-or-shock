@@ -27,4 +27,3 @@ This script turns a webcam into a grin-detector and uses it to enforce a spicy p
 - Deviant-Designs
 
 https://buymeacoffee.com/bdsmbytes
-**
