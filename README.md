@@ -25,3 +25,6 @@ This script turns a webcam into a grin-detector and uses it to enforce a spicy p
 **Inspired by**
 - mistress_and_pup
 - Deviant-Designs
+
+https://buymeacoffee.com/bdsmbytes
+**
