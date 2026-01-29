@@ -1,0 +1,53 @@
+DEBUG = 1
+
+CAMERA_WIDTH = 1920
+CAMERA_HEIGHT = 1080
+
+# Lip landmark indices for smile detection
+LIP_LEFT = 61
+LIP_RIGHT = 291
+LIP_UPPER = 13
+LIP_LOWER = 14
+# Eye corner indices for normalization
+EYE_LEFT = 33
+EYE_RIGHT = 263
+
+ON_OFFSET = 0.10
+OFF_OFFSET = 0.18
+SUPER_ON_OFFSET = 0.03
+SUPER_OFF_OFFSET = 0.08
+
+# Session defaults
+SESSION_SECONDS = 300
+PENALTY_RATE = 2.0
+MESSAGES = [
+    "Keep going",
+    "Stay focused",
+    "Smile check",
+    "You got this",
+    "Eyes up",
+]
+WARMUP_DURATION = 4
+WARMUP_DONE_HOLD = 1.0
+
+# Serial defaults
+SERIAL_PORT = "COM3"
+SERIAL_BAUD = 9600
+INTENSITY_MIN_A = 20
+INTENSITY_MAX_A = 90
+INTENSITY_STEP_A = 2
+INTENSITY_WINDOW_A = 5
+INTENSITY_MIN_B = 20
+INTENSITY_MAX_B = 90
+INTENSITY_STEP_B = 2
+INTENSITY_WINDOW_B = 5
+
+CHANNEL_A_ENABLED = True
+CHANNEL_B_ENABLED = False
+DURATION_S = 5
+TIMEOUT_S = 15
+
+# Tease settings
+TEASE_INTERVAL_MIN = 6.0
+TEASE_INTERVAL_MAX = 12.0
+TEASE_DURATION_S = 1.0
